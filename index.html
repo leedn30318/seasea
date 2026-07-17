@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>해양알칼리도 향상 기술 도입 판단 대시보드</title>
+    <!-- Tailwind CSS for UI styling -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <!-- Chart.js for Visualization -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- PapaParse for CSV Parsing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <style>
+        body { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 min-h-screen flex flex-col">
+
+    <!-- Header -->
+    <header class="bg-blue-600 text-white shadow-md py-6 px-8">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
+            <div>
+                <h1 class="text-2xl font-bold">연안별 해양알칼리도 향상 기술 적합성 분석</h1>
+                <p class="text-sm text-blue-100 mt-1">수온 및 pH 기반 기술 적용 가능 여부 데이터 시각화 웹앱</p>
+            </div>
+            <div class="text-xs bg-blue-700 px-3 py-2 rounded-lg text-right">
+                <strong>데이터 출처:</strong> 2002-2025 해양데이터_사용가능판정.csv
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-grow max-w-7xl w-full mx-auto p-4 md:p-8 grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- Left Column: Controls & Info -->
+        <div class="lg:col-span-1 flex flex-col gap-6">
+            <!-- Filter Card -->
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                <h2 class="text-lg font-semibold mb-4 text-gray-900 flex items-center gap-2">
+                    <span>🔍</span> 연안 조회 및 필터
+                </h2>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-600 mb-1">해역 선택</label>
+                        <select id="region-select" class="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                            <option value="ALL">전체 해역</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-600 mb-1">상세 연안 선택</label>
+                        <select id="coast-select" class="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                            <option value="">해역을 먼저 선택하세요</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Decision Result Card -->
+            <div id="result-card" class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hidden">
+                <h2 class="text-lg font-semibold mb-3 text-gray-900">💡 기술 판정 결과</h2>
+                <div id="status-badge" class="inline-block px-3 py-1.5 rounded-full text-sm font-bold mb-4"></div>
+                <div class="space-y-2 text-sm">
+                    <div class="flex justify-between border-b border-gray-100 pb-2">
+                        <span class="text-gray-500">측정 수온</span>
+                        <span id="res-temp" class="font-medium text-gray-900">-</span>
+                    </div>
+                    <div class="flex justify-between border-b border-gray-100 pb-2">
+                        <span class="text-gray-500">측정 pH</span>
+                        <span id="res-ph" class="font-medium text-gray-900">-</span>
+                    </div>
+                    <div class="flex justify-between border-b border-gray-100 pb-2">
+                        <span class="text-gray-500">용존산소량 (DO)</span>
+                        <span id="res-do" class="font-medium text-gray-900">-</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- summary static card -->
+            <div class="bg-gradient-to-br from-blue-50 to-indigo-50 p-6 rounded-2xl border border-blue-100">
+                <h3 class="font-semibold text-blue-900 mb-2">전체 요약 통계</h3>
+                <div class="grid grid-cols-2 gap-4 mt-3">
+                    <div class="bg-white p-3 rounded-xl shadow-2xs text-center">
+                        <p class="text-xs text-gray-500">사용 가능 연안</p>
+                        <p id="cnt-available" class="text-xl font-bold text-emerald-600">0</p>
+                    </div>
+                    <div class="bg-white p-3 rounded-xl shadow-2xs text-center">
+                        <p class="text-xs text-gray-500">사용 불가 연안</p>
+                        <p id="cnt-unavailable" class="text-xl font-bold text-rose-600">0</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Charts & Tables -->
+        <div class="lg:col-span-2 flex flex-col gap-6">
+            <!-- Chart Card -->
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                <h2 class="text-lg font-semibold mb-4 text-gray-900">📊 수온 vs pH 상관관계 및 기술 가능 구역 분포</h2>
+                <div class="relative w-full h-[350px]">
+                    <canvas id="oceanChart"></canvas>
+                </div>
+                <p class="text-xs text-gray-400 mt-2 text-center">💡 그래프 상의 점을 클릭하면 해당 연안의 상세 정보가 필터링됩니다.</p>
+            </div>
+
+            <!-- Table Card -->
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex-grow flex flex-col">
+                <h2 class="text-lg font-semibold mb-3 text-gray-900">📋 데이터 명세 리스트</h2>
+                <div class="overflow-x-auto flex-grow max-h-[300px]">
+                    <table class="w-full text-left border-collapse text-sm">
+                        <thead>
+                            <tr class="bg-gray-50 text-gray-600 sticky top-0 border-b border-gray-200">
+                                <th class="p-3">해역</th>
+                                <th class="p-3">연안명</th>
+                                <th class="p-3">수온(℃)</th>
+                                <th class="p-3">pH</th>
+                                <th class="p-3">DO(㎎/ℓ)</th>
+                                <th class="p-3">판정 결과</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-body" class="divide-y divide-gray-100 text-gray-700">
+                            <!-- JS Dynamic Input -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-gray-100 text-center py-4 text-xs text-gray-500 border-t border-gray-200">
+        &copy; 2026 해양알칼리도 기술 검토 시스템 - HTML/CSS/JS Single Page Application
+    </footer>
+
+    <!-- Logic Script -->
+    <script>
+        let oceanData = [];
+        let chartInstance = null;
+
+        // 웹앱 실행 시 CSV 파일 로드
+        window.addEventListener('DOMContentLoaded', () => {
+            fetchAndParseCSV();
+        });
+
+        function fetchAndParseCSV() {
+            // 동일 폴더 내의 CSV 호출
+            Papa.parse("2002-2025 해양데이터_사용가능판정.csv", {
+                download: true,
+                header: false, // 첫번째 행 변수처리를 위해 false 후 수동정제
+                skipEmptyLines: true,
+                complete: function(results) {
+                    processRawData(results.data);
+                },
+                error: function(err) {
+                    alert("CSV 데이터를 불러오는데 실패했습니다. 파일명과 위치를 확인해주세요.");
+                    console.error(err);
+                }
+            });
+        }
+
+        function processRawData(data) {
+            if (data.length < 2) return;
+            
+            // 데이터 매핑 및 가공 (0번 인덱스는 변수 한글명 설명이므로 1번부터 사용)
+            oceanData = data.slice(1).filter(row => row[0] !== "해역/연안별(1)").map(row => {
+                return {
+                    region: row[0],
+                    coast: row[1],
+                    depth: row[2],
+                    temp: parseFloat(row[3]),
+                    ph: parseFloat(row[4]),
+                    do: parseFloat(row[5]),
+                    decision: row[6] ? row[6].trim() : "사용 불가"
+                };
+            });
+
+            initFilters();
+            updateStatistics();
+            renderTable(oceanData);
+            renderChart(oceanData);
+        }
+
+        function initFilters() {
+            const regionSelect = document.getElementById('region-select');
+            const coastSelect = document.getElementById('coast-select');
+
+            // 고유 해역 리스트 추출
+            const regions = [...new Set(oceanData.map(d => d.region))];
+            regions.forEach(r => {
+                const opt = document.createElement('option');
+                opt.value = r;
+                opt.textContent = r;
+                regionSelect.appendChild(opt);
+            });
+
+            // 해역 변경 이벤트
+            regionSelect.addEventListener('change', (e) => {
+                const selectedRegion = e.target.value;
+                coastSelect.innerHTML = '<option value="">선택하세요</option>';
+                
+                let filtered = oceanData;
+                if (selectedRegion !== 'ALL') {
+                    filtered = oceanData.filter(d => d.region === selectedRegion);
+                    const coasts = [...new Set(filtered.map(d => d.coast))];
+                    coasts.forEach(c => {
+                        const opt = document.createElement('option');
+                        opt.value = c;
+                        opt.textContent = c;
+                        coastSelect.appendChild(opt);
+                    });
+                } else {
+                    coastSelect.innerHTML = '<option value="">해역을 먼저 선택하세요</option>';
+                }
+                
+                renderTable(filtered);
+                updateChartSelection(filtered);
+                document.getElementById('result-card').classList.add('hidden');
+            });
+
+            // 연안 변경 이벤트
+            coastSelect.addEventListener('change', (e) => {
+                const selectedCoast = e.target.value;
+                if (!selectedCoast) return;
+
+                const targetData = oceanData.find(d => d.coast === selectedCoast);
+                if (targetData) {
+                    showDecisionResult(targetData);
+                    // 차트 내에서 하이라이트 효과 등을 주기 위해 전달 가능
+                }
+            });
+        }
+
+        function updateStatistics() {
+            const availableCount = oceanData.filter(d => d.decision.includes('사용 가능')).length;
+            const unavailableCount = oceanData.length - availableCount;
+
+            document.getElementById('cnt-available').textContent = availableCount + " 개소";
+            document.getElementById('cnt-unavailable').textContent = unavailableCount + " 개소";
+        }
+
+        function showDecisionResult(item) {
+            const card = document.getElementById('result-card');
+            const badge = document.getElementById('status-badge');
+            
+            document.getElementById('res-temp').textContent = item.temp + " ℃";
+            document.getElementById('res-ph').textContent = item.ph;
+            document.getElementById('res-do').textContent = item.do + " ㎎/ℓ";
+
+            card.classList.remove('hidden');
+
+            if (item.decision.includes('사용 가능')) {
+                badge.className = "inline-block px-3 py-1.5 rounded-full text-sm font-bold mb-4 bg-emerald-100 text-emerald-800";
+                badge.textContent = "🟢 기술 도입 가능 연안";
+            } else {
+                badge.className = "inline-block px-3 py-1.5 rounded-full text-sm font-bold mb-4 bg-rose-100 text-rose-800";
+                badge.textContent = "🔴 기술 도입 불가 지역";
+            }
+        }
+
+        function renderTable(data) {
+            const tbody = document.getElementById('table-body');
+            tbody.innerHTML = '';
+
+            data.forEach(item => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-gray-50 cursor-pointer transition";
+                tr.addEventListener('click', () => {
+                    document.getElementById('region-select').value = item.region;
+                    // Trigger region change event manually if needed, or just show summary directly:
+                    showDecisionResult(item);
+                });
+
+                const isAvail = item.decision.includes('사용 가능');
+                
+                tr.innerHTML = `
+                    <td class="p-3 font-medium text-gray-500">${item.region}</td>
+                    <td class="p-3 font-semibold">${item.coast}</td>
+                    <td class="p-3">${item.temp}</td>
+                    <td class="p-3">${item.ph}</td>
+                    <td class="p-3">${item.do}</td>
+                    <td class="p-3">
+                        <span class="px-2 py-0.5 rounded text-xs font-semibold ${isAvail ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600'}">
+                            ${isAvail ? '사용 가능' : '사용 불가'}
+                        </span>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function renderChart(data) {
+            const ctx = document.getElementById('oceanChart').getContext('2d');
+            
+            // 데이터셋 분리 (시각화를 위해 사용 가능 구역과 불가 구역 분리 표시)
+            const availablePoints = data.filter(d => d.decision.includes('사용 가능')).map(d => ({ x: d.temp, y: d.ph, label: d.coast }));
+            const unavailablePoints = data.filter(d => !d.decision.includes('사용 가능')).map(d => ({ x: d.temp, y: d.ph, label: d.coast }));
+
+            chartInstance = new Chart(ctx, {
+                type: 'scatter',
+                data: {
+                    datasets: [
+                        {
+                            label: '기술 사용 가능 연안',
+                            data: availablePoints,
+                            backgroundColor: 'rgba(16, 185, 129, 0.85)',
+                            borderColor: 'rgb(5, 150, 105)',
+                            pointRadius: 8,
+                            pointHoverRadius: 10
+                        },
+                        {
+                            label: '기술 사용 불가 연안',
+                            data: unavailablePoints,
+                            backgroundColor: 'rgba(244, 63, 94, 0.65)',
+                            borderColor: 'rgb(225, 29, 72)',
+                            pointRadius: 5,
+                            pointHoverRadius: 7
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const p = context.raw;
+                                    return `${p.label} (수온: ${p.x}℃, pH: ${p.y})`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: { display: true, text: '수온 Temp. (℃)', font: { weight: 'bold' } }
+                        },
+                        y: {
+                            title: { display: true, text: '수소이온농도 pH', font: { weight: 'bold' } }
+                        }
+                    },
+                    onClick: (e, elements) => {
+                        if (elements.length > 0) {
+                            const index = elements[0].index;
+                            const datasetIndex = elements[0].datasetIndex;
+                            const clickedPoint = chartInstance.data.datasets[datasetIndex].data[index];
+                            
+                            const matchedData = oceanData.find(d => d.coast === clickedPoint.label);
+                            if (matchedData) {
+                                showDecisionResult(matchedData);
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateChartSelection(filteredData) {
+            if (!chartInstance) return;
+            const availablePoints = filteredData.filter(d => d.decision.includes('사용 가능')).map(d => ({ x: d.temp, y: d.ph, label: d.coast }));
+            const unavailablePoints = filteredData.filter(d => !d.decision.includes('사용 가능')).map(d => ({ x: d.temp, y: d.ph, label: d.coast }));
+
+            chartInstance.data.datasets[0].data = availablePoints;
+            chartInstance.data.datasets[1].data = unavailablePoints;
+            chartInstance.update();
+        }
+    </script>
+</body>
+</html>
