@@ -10,8 +10,12 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- PapaParse for CSV Parsing -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <!-- Leaflet.js for Interactive Map -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
         body { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif; }
+        #map { height: 400px; width: 100%; z-index: 1; }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800 min-h-screen flex flex-col">
@@ -21,7 +25,7 @@
         <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
             <div>
                 <h1 class="text-2xl font-bold">연안별 해양알칼리도 향상 기술 적합성 분석</h1>
-                <p class="text-sm text-blue-100 mt-1">수온 및 pH 기반 기술 적용 가능 여부 데이터 시각화 웹앱</p>
+                <p class="text-sm text-blue-100 mt-1">한글 깨짐 수정 완료 및 위치 지도 연동 대시보드</p>
             </div>
             <div class="text-xs bg-blue-700 px-3 py-2 rounded-lg text-right">
                 <strong>데이터 출처:</strong> 2002-2025 해양데이터_사용가능판정.csv
@@ -32,7 +36,7 @@
     <!-- Main Content -->
     <main class="flex-grow max-w-7xl w-full mx-auto p-4 md:p-8 grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        <!-- Left Column: Controls & Info -->
+        <!-- Left Column: Controls & Map Info -->
         <div class="lg:col-span-1 flex flex-col gap-6">
             <!-- Filter Card -->
             <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
@@ -61,6 +65,10 @@
                 <div id="status-badge" class="inline-block px-3 py-1.5 rounded-full text-sm font-bold mb-4"></div>
                 <div class="space-y-2 text-sm">
                     <div class="flex justify-between border-b border-gray-100 pb-2">
+                        <span class="text-gray-500">선택된 지역</span>
+                        <span id="res-name" class="font-bold text-gray-900">-</span>
+                    </div>
+                    <div class="flex justify-between border-b border-gray-100 pb-2">
                         <span class="text-gray-500">측정 수온</span>
                         <span id="res-temp" class="font-medium text-gray-900">-</span>
                     </div>
@@ -79,11 +87,11 @@
             <div class="bg-gradient-to-br from-blue-50 to-indigo-50 p-6 rounded-2xl border border-blue-100">
                 <h3 class="font-semibold text-blue-900 mb-2">전체 요약 통계</h3>
                 <div class="grid grid-cols-2 gap-4 mt-3">
-                    <div class="bg-white p-3 rounded-xl shadow-2xs text-center">
+                    <div class="bg-white p-3 rounded-xl shadow-sm text-center">
                         <p class="text-xs text-gray-500">사용 가능 연안</p>
                         <p id="cnt-available" class="text-xl font-bold text-emerald-600">0</p>
                     </div>
-                    <div class="bg-white p-3 rounded-xl shadow-2xs text-center">
+                    <div class="bg-white p-3 rounded-xl shadow-sm text-center">
                         <p class="text-xs text-gray-500">사용 불가 연안</p>
                         <p id="cnt-unavailable" class="text-xl font-bold text-rose-600">0</p>
                     </div>
@@ -91,21 +99,21 @@
             </div>
         </div>
 
-        <!-- Right Column: Charts & Tables -->
+        <!-- Right Column: Map & Table -->
         <div class="lg:col-span-2 flex flex-col gap-6">
-            <!-- Chart Card -->
+            <!-- Map Card -->
             <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                <h2 class="text-lg font-semibold mb-4 text-gray-900">📊 수온 vs pH 상관관계 및 기술 가능 구역 분포</h2>
-                <div class="relative w-full h-[350px]">
-                    <canvas id="oceanChart"></canvas>
-                </div>
-                <p class="text-xs text-gray-400 mt-2 text-center">💡 그래프 상의 점을 클릭하면 해당 연안의 상세 정보가 필터링됩니다.</p>
+                <h2 class="text-lg font-semibold mb-4 text-gray-900 flex items-center gap-2">
+                    <span>🗺️</span> 연안별 공간 위치 지도
+                </h2>
+                <div id="map" class="rounded-xl overflow-hidden shadow-inner border border-gray-200"></div>
+                <p class="text-xs text-gray-400 mt-2">💡 마커를 클릭하면 해양알칼리도 적합성 분석 결과가 팝업 및 좌측 카드에 상세히 노출됩니다.</p>
             </div>
 
             <!-- Table Card -->
-            <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex-grow flex flex-col">
-                <h2 class="text-lg font-semibold mb-3 text-gray-900">📋 데이터 명세 리스트</h2>
-                <div class="overflow-x-auto flex-grow max-h-[300px]">
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                <h2 class="text-lg font-semibold mb-3 text-gray-900">📋 데이터 명세 리스트 (첫 행 한글 정제완료)</h2>
+                <div class="overflow-x-auto max-h-[250px]">
                     <table class="w-full text-left border-collapse text-sm">
                         <thead>
                             <tr class="bg-gray-50 text-gray-600 sticky top-0 border-b border-gray-200">
@@ -126,33 +134,57 @@
         </div>
     </main>
 
-    <!-- Footer -->
-    <footer class="bg-gray-100 text-center py-4 text-xs text-gray-500 border-t border-gray-200">
-        &copy; 2026 해양알칼리도 기술 검토 시스템 - HTML/CSS/JS Single Page Application
+    <footer class="bg-gray-100 text-center py-4 text-xs text-gray-500 border-t border-gray-200 mt-auto">
+        &copy; 2026 해양알칼리도 기술 검토 대시보드 - GitHub Pages Deployment Ready
     </footer>
 
-    <!-- Logic Script -->
     <script>
         let oceanData = [];
-        let chartInstance = null;
+        let map = null;
+        let markersGroup = [];
 
-        // 웹앱 실행 시 CSV 파일 로드
+        // 대한민국 연안 지역별 매핑용 위경도 기본 사전데이터
+        const locationCoords = {
+            '거진연안': [38.265, 128.605], '속초연안': [38.204, 128.600], '양양연안': [38.085, 128.640],
+            '주문진연안': [37.890, 128.845], '강릉연안': [37.780, 128.970], '동해연안': [37.525, 129.135],
+            '삼척연안': [37.445, 129.175], '죽변연안': [37.055, 129.430], '후포연안': [36.675, 129.460],
+            '축산연안': [36.505, 129.450], '강구연안': [36.355, 129.400], '월포연안': [36.205, 129.390],
+            '영일만': [36.080, 129.420], '구룡포연안': [35.985, 129.575], '감포연안': [35.805, 129.515],
+            '기장연안': [35.240, 129.240], '진해만': [35.095, 128.630], '거제도동안': [34.920, 128.745],
+            '거제도남안': [34.730, 128.620], '통영연안': [34.810, 128.435], '통영외안': [34.620, 128.420],
+            '고성자란만': [34.900, 128.250], '사천연안': [34.910, 128.050], '진주만': [34.920, 127.950],
+            '남해도남안': [34.720, 127.900], '여수연안': [34.715, 127.790], '여자만': [34.820, 127.550],
+            '고흥연안': [34.505, 127.280], '제주연안': [33.520, 126.510], '조천연안': [33.545, 126.640],
+            '성산연안': [33.450, 126.935], '표선연안': [33.325, 126.835], '서귀포연안': [33.235, 126.560],
+            '대정연안': [33.220, 126.250], '한림연안': [33.415, 126.255], '진도연안': [34.425, 126.260],
+            '해남만': [34.550, 126.505], '목포연안': [34.770, 126.375], '신안연안': [34.830, 126.115],
+            '무안연안': [34.980, 126.425], '고창연안': [35.480, 126.510], '전주포연안': [35.655, 126.570],
+            '군산연안': [35.990, 126.580], '보령연안': [36.330, 126.505], '천수만': [36.450, 126.430],
+            '태안연안': [36.750, 126.155], '가로림연안': [36.900, 126.340], '대산연안': [37.020, 126.425],
+            '아산연안': [36.980, 126.755]
+        };
+
         window.addEventListener('DOMContentLoaded', () => {
+            initMap();
             fetchAndParseCSV();
         });
 
+        // 지도 초기 설정
+        function initMap() {
+            map = L.map('map').setView([35.8, 127.8], 7); // 대한민국 중심 좌표
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(map);
+        }
+
         function fetchAndParseCSV() {
-            // 동일 폴더 내의 CSV 호출
             Papa.parse("2002-2025 해양데이터_사용가능판정.csv", {
                 download: true,
-                header: false, // 첫번째 행 변수처리를 위해 false 후 수동정제
+                header: false,
+                encoding: "CP949", // 한글 안깨지도록 인코딩 명시 필수 설정!!
                 skipEmptyLines: true,
                 complete: function(results) {
                     processRawData(results.data);
-                },
-                error: function(err) {
-                    alert("CSV 데이터를 불러오는데 실패했습니다. 파일명과 위치를 확인해주세요.");
-                    console.error(err);
                 }
             });
         }
@@ -160,39 +192,38 @@
         function processRawData(data) {
             if (data.length < 2) return;
             
-            // 데이터 매핑 및 가공 (0번 인덱스는 변수 한글명 설명이므로 1번부터 사용)
-            oceanData = data.slice(1).filter(row => row[0] !== "해역/연안별(1)").map(row => {
-                return {
-                    region: row[0],
-                    coast: row[1],
-                    depth: row[2],
-                    temp: parseFloat(row[3]),
-                    ph: parseFloat(row[4]),
-                    do: parseFloat(row[5]),
-                    decision: row[6] ? row[6].trim() : "사용 불가"
-                };
-            });
+            // 한글 인덱스 및 수치 데이터 추출 후 객체로 정제 (비정상 헤더 행 제거)
+            oceanData = data.slice(1)
+                .filter(row => row[0] !== "해역/연안별(1)" && row[1] && row[3] && !isNaN(parseFloat(row[3])))
+                .map(row => {
+                    return {
+                        region: row[0].trim(),
+                        coast: row[1].trim(),
+                        depth: row[2].trim(),
+                        temp: parseFloat(row[3]),
+                        ph: parseFloat(row[4]),
+                        do: parseFloat(row[5]),
+                        decision: row[6] ? row[6].trim() : "사용 불가"
+                    };
+                });
 
             initFilters();
             updateStatistics();
             renderTable(oceanData);
-            renderChart(oceanData);
+            plotMapMarkers(oceanData);
         }
 
         function initFilters() {
             const regionSelect = document.getElementById('region-select');
             const coastSelect = document.getElementById('coast-select');
 
-            // 고유 해역 리스트 추출
             const regions = [...new Set(oceanData.map(d => d.region))];
             regions.forEach(r => {
                 const opt = document.createElement('option');
-                opt.value = r;
-                opt.textContent = r;
+                opt.value = r; opt.textContent = r;
                 regionSelect.appendChild(opt);
             });
 
-            // 해역 변경 이벤트
             regionSelect.addEventListener('change', (e) => {
                 const selectedRegion = e.target.value;
                 coastSelect.innerHTML = '<option value="">선택하세요</option>';
@@ -203,20 +234,16 @@
                     const coasts = [...new Set(filtered.map(d => d.coast))];
                     coasts.forEach(c => {
                         const opt = document.createElement('option');
-                        opt.value = c;
-                        opt.textContent = c;
+                        opt.value = c; opt.textContent = c;
                         coastSelect.appendChild(opt);
                     });
-                } else {
-                    coastSelect.innerHTML = '<option value="">해역을 먼저 선택하세요</option>';
                 }
                 
                 renderTable(filtered);
-                updateChartSelection(filtered);
+                plotMapMarkers(filtered);
                 document.getElementById('result-card').classList.add('hidden');
             });
 
-            // 연안 변경 이벤트
             coastSelect.addEventListener('change', (e) => {
                 const selectedCoast = e.target.value;
                 if (!selectedCoast) return;
@@ -224,7 +251,7 @@
                 const targetData = oceanData.find(d => d.coast === selectedCoast);
                 if (targetData) {
                     showDecisionResult(targetData);
-                    // 차트 내에서 하이라이트 효과 등을 주기 위해 전달 가능
+                    focusMapOnCoast(targetData.coast);
                 }
             });
         }
@@ -241,6 +268,7 @@
             const card = document.getElementById('result-card');
             const badge = document.getElementById('status-badge');
             
+            document.getElementById('res-name').textContent = `[${item.region}] ${item.coast}`;
             document.getElementById('res-temp').textContent = item.temp + " ℃";
             document.getElementById('res-ph').textContent = item.ph;
             document.getElementById('res-do').textContent = item.do + " ㎎/ℓ";
@@ -262,11 +290,10 @@
 
             data.forEach(item => {
                 const tr = document.createElement('tr');
-                tr.className = "hover:bg-gray-50 cursor-pointer transition";
+                tr.className = "hover:bg-gray-100 cursor-pointer transition";
                 tr.addEventListener('click', () => {
-                    document.getElementById('region-select').value = item.region;
-                    // Trigger region change event manually if needed, or just show summary directly:
                     showDecisionResult(item);
+                    focusMapOnCoast(item.coast);
                 });
 
                 const isAvail = item.decision.includes('사용 가능');
@@ -278,7 +305,7 @@
                     <td class="p-3">${item.ph}</td>
                     <td class="p-3">${item.do}</td>
                     <td class="p-3">
-                        <span class="px-2 py-0.5 rounded text-xs font-semibold ${isAvail ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600'}">
+                        <span class="px-2 py-0.5 rounded text-xs font-semibold ${isAvail ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}">
                             ${isAvail ? '사용 가능' : '사용 불가'}
                         </span>
                     </td>
@@ -287,80 +314,60 @@
             });
         }
 
-        function renderChart(data) {
-            const ctx = document.getElementById('oceanChart').getContext('2d');
-            
-            // 데이터셋 분리 (시각화를 위해 사용 가능 구역과 불가 구역 분리 표시)
-            const availablePoints = data.filter(d => d.decision.includes('사용 가능')).map(d => ({ x: d.temp, y: d.ph, label: d.coast }));
-            const unavailablePoints = data.filter(d => !d.decision.includes('사용 가능')).map(d => ({ x: d.temp, y: d.ph, label: d.coast }));
+        // 지도 마커 그리기
+        function plotMapMarkers(data) {
+            // 기존 마커 전체 삭제
+            markersGroup.forEach(m => map.removeLayer(m));
+            markersGroup = [];
 
-            chartInstance = new Chart(ctx, {
-                type: 'scatter',
-                data: {
-                    datasets: [
-                        {
-                            label: '기술 사용 가능 연안',
-                            data: availablePoints,
-                            backgroundColor: 'rgba(16, 185, 129, 0.85)',
-                            borderColor: 'rgb(5, 150, 105)',
-                            pointRadius: 8,
-                            pointHoverRadius: 10
-                        },
-                        {
-                            label: '기술 사용 불가 연안',
-                            data: unavailablePoints,
-                            backgroundColor: 'rgba(244, 63, 94, 0.65)',
-                            borderColor: 'rgb(225, 29, 72)',
-                            pointRadius: 5,
-                            pointHoverRadius: 7
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    const p = context.raw;
-                                    return `${p.label} (수온: ${p.x}℃, pH: ${p.y})`;
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        x: {
-                            title: { display: true, text: '수온 Temp. (℃)', font: { weight: 'bold' } }
-                        },
-                        y: {
-                            title: { display: true, text: '수소이온농도 pH', font: { weight: 'bold' } }
-                        }
-                    },
-                    onClick: (e, elements) => {
-                        if (elements.length > 0) {
-                            const index = elements[0].index;
-                            const datasetIndex = elements[0].datasetIndex;
-                            const clickedPoint = chartInstance.data.datasets[datasetIndex].data[index];
-                            
-                            const matchedData = oceanData.find(d => d.coast === clickedPoint.label);
-                            if (matchedData) {
-                                showDecisionResult(matchedData);
-                            }
-                        }
-                    }
-                }
+            data.forEach(item => {
+                const coords = locationCoords[item.coast];
+                if (!coords) return; // 위치 정보 매핑이 없을 경우 패스
+
+                const isAvail = item.decision.includes('사용 가능');
+                
+                // 적용 가능 여부에 따라 마커 색상 구분용 스타일 정의
+                const markerColor = isAvail ? '#10b981' : '#f43f5e';
+                
+                const customIcon = L.divIcon({
+                    html: `<div style="background-color: ${markerColor}; width: 14px; height: 14px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
+                    className: '',
+                    iconSize: [14, 14]
+                });
+
+                const marker = L.marker(coords, { icon: customIcon }).addTo(map);
+                
+                // 팝업 생성
+                const popupContent = `
+                    <div class="p-1">
+                        <h4 class="font-bold text-sm text-gray-900">${item.coast}</h4>
+                        <p class="text-xs text-gray-600 mt-1">수온: ${item.temp}℃ | pH: ${item.ph}</p>
+                        <p class="text-xs font-bold mt-1 ${isAvail ? 'text-emerald-600':'text-rose-600'}">${item.decision}</p>
+                    </div>
+                `;
+                marker.bindPopup(popupContent);
+
+                // 마커 클릭 시 동작 정의
+                marker.on('click', () => {
+                    showDecisionResult(item);
+                });
+
+                markersGroup.push(marker);
             });
         }
 
-        function updateChartSelection(filteredData) {
-            if (!chartInstance) return;
-            const availablePoints = filteredData.filter(d => d.decision.includes('사용 가능')).map(d => ({ x: d.temp, y: d.ph, label: d.coast }));
-            const unavailablePoints = filteredData.filter(d => !d.decision.includes('사용 가능')).map(d => ({ x: d.temp, y: d.ph, label: d.coast }));
-
-            chartInstance.data.datasets[0].data = availablePoints;
-            chartInstance.data.datasets[1].data = unavailablePoints;
-            chartInstance.update();
+        function focusMapOnCoast(coastName) {
+            const coords = locationCoords[coastName];
+            if (coords && map) {
+                map.setView(coords, 10);
+                
+                // 연결된 마커 찾아서 팝업 강제 오픈
+                markersGroup.forEach(m => {
+                    if(m.getLatLng().lat === coords[0] && m.getLatLng().lng === coords[1]) {
+                        m.openPopup();
+                    }
+                });
+            }
         }
     </script>
 </body>
