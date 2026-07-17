@@ -6,16 +6,14 @@
     <title>해양알칼리도 향상 기술 도입 판단 대시보드</title>
     <!-- Tailwind CSS for UI styling -->
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-    <!-- Chart.js for Visualization -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- PapaParse for CSV Parsing -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
-    <!-- Leaflet.js for Interactive Map -->
+    <!-- Leaflet.js for Interactive Map (지도 라이브러리) -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
         body { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif; }
-        #map { height: 400px; width: 100%; z-index: 1; }
+        #map { height: 450px; width: 100%; z-index: 1; }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800 min-h-screen flex flex-col">
@@ -25,7 +23,7 @@
         <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
             <div>
                 <h1 class="text-2xl font-bold">연안별 해양알칼리도 향상 기술 적합성 분석</h1>
-                <p class="text-sm text-blue-100 mt-1">한글 깨짐 수정 완료 및 위치 지도 연동 대시보드</p>
+                <p class="text-sm text-blue-100 mt-1">EUC-KR 디코더 직접 적용으로 한글 깨짐 완벽 해결 및 지도 시각화</p>
             </div>
             <div class="text-xs bg-blue-700 px-3 py-2 rounded-lg text-right">
                 <strong>데이터 출처:</strong> 2002-2025 해양데이터_사용가능판정.csv
@@ -36,7 +34,7 @@
     <!-- Main Content -->
     <main class="flex-grow max-w-7xl w-full mx-auto p-4 md:p-8 grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        <!-- Left Column: Controls & Map Info -->
+        <!-- Left Column: Controls & Result Info -->
         <div class="lg:col-span-1 flex flex-col gap-6">
             <!-- Filter Card -->
             <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
@@ -87,11 +85,11 @@
             <div class="bg-gradient-to-br from-blue-50 to-indigo-50 p-6 rounded-2xl border border-blue-100">
                 <h3 class="font-semibold text-blue-900 mb-2">전체 요약 통계</h3>
                 <div class="grid grid-cols-2 gap-4 mt-3">
-                    <div class="bg-white p-3 rounded-xl shadow-sm text-center">
+                    <div class="bg-white p-3 rounded-xl shadow-xs text-center">
                         <p class="text-xs text-gray-500">사용 가능 연안</p>
                         <p id="cnt-available" class="text-xl font-bold text-emerald-600">0</p>
                     </div>
-                    <div class="bg-white p-3 rounded-xl shadow-sm text-center">
+                    <div class="bg-white p-3 rounded-xl shadow-xs text-center">
                         <p class="text-xs text-gray-500">사용 불가 연안</p>
                         <p id="cnt-unavailable" class="text-xl font-bold text-rose-600">0</p>
                     </div>
@@ -106,14 +104,15 @@
                 <h2 class="text-lg font-semibold mb-4 text-gray-900 flex items-center gap-2">
                     <span>🗺️</span> 연안별 공간 위치 지도
                 </h2>
+                <!-- 지도가 표시되는 영역 -->
                 <div id="map" class="rounded-xl overflow-hidden shadow-inner border border-gray-200"></div>
-                <p class="text-xs text-gray-400 mt-2">💡 마커를 클릭하면 해양알칼리도 적합성 분석 결과가 팝업 및 좌측 카드에 상세히 노출됩니다.</p>
+                <p class="text-xs text-gray-400 mt-2">💡 마커를 클릭하면 해양알칼리도 적합성 분석 결과가 팝업 및 좌측 결과 카드에 연동되어 표시됩니다.</p>
             </div>
 
             <!-- Table Card -->
             <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                <h2 class="text-lg font-semibold mb-3 text-gray-900">📋 데이터 명세 리스트 (첫 행 한글 정제완료)</h2>
-                <div class="overflow-x-auto max-h-[250px]">
+                <h2 class="text-lg font-semibold mb-3 text-gray-900">📋 데이터 명세 리스트</h2>
+                <div class="overflow-x-auto max-h-[300px]">
                     <table class="w-full text-left border-collapse text-sm">
                         <thead>
                             <tr class="bg-gray-50 text-gray-600 sticky top-0 border-b border-gray-200">
@@ -143,7 +142,7 @@
         let map = null;
         let markersGroup = [];
 
-        // 대한민국 연안 지역별 매핑용 위경도 기본 사전데이터
+        // 대한민국 실제 주요 연안 위경도 좌표 데이터베이스
         const locationCoords = {
             '거진연안': [38.265, 128.605], '속초연안': [38.204, 128.600], '양양연안': [38.085, 128.640],
             '주문진연안': [37.890, 128.845], '강릉연안': [37.780, 128.970], '동해연안': [37.525, 129.135],
@@ -169,30 +168,47 @@
             fetchAndParseCSV();
         });
 
-        // 지도 초기 설정
+        // 지도 초기 설정 (기본값: 대한민국 중심부)
         function initMap() {
-            map = L.map('map').setView([35.8, 127.8], 7); // 대한민국 중심 좌표
+            map = L.map('map').setView([36.2, 127.8], 7); 
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; OpenStreetMap contributors'
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             }).addTo(map);
         }
 
+        // CSV 원시 바이너리를 직접 가져와 EUC-KR(또는 CP949) 디코딩 후 분석
         function fetchAndParseCSV() {
-            Papa.parse("2002-2025 해양데이터_사용가능판정.csv", {
-                download: true,
-                header: false,
-                encoding: "CP949", // 한글 안깨지도록 인코딩 명시 필수 설정!!
-                skipEmptyLines: true,
-                complete: function(results) {
-                    processRawData(results.data);
-                }
-            });
+            fetch("2002-2025 해양데이터_사용가능판정.csv")
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error("네트워크 응답 오류가 발생했습니다.");
+                    }
+                    return response.arrayBuffer(); // 원본 바이너리로 변환
+                })
+                .then(buffer => {
+                    // 브라우저 네이티브 TextDecoder를 사용해 한글 깨짐 원인 차단
+                    const decoder = new TextDecoder('euc-kr');
+                    const decodedText = decoder.decode(buffer);
+                    
+                    // 정합성 확보된 문자열을 PapaParse에 입력
+                    Papa.parse(decodedText, {
+                        header: false,
+                        skipEmptyLines: true,
+                        complete: function(results) {
+                            processRawData(results.data);
+                        }
+                    });
+                })
+                .catch(err => {
+                    alert("데이터를 로드하는 데 실패했습니다. CSV 파일 위치나 이름을 확인해주세요.");
+                    console.error(err);
+                });
         }
 
         function processRawData(data) {
             if (data.length < 2) return;
             
-            // 한글 인덱스 및 수치 데이터 추출 후 객체로 정제 (비정상 헤더 행 제거)
+            // 헤더 정보 이외의 유효 수치 필터링 및 객체화
             oceanData = data.slice(1)
                 .filter(row => row[0] !== "해역/연안별(1)" && row[1] && row[3] && !isNaN(parseFloat(row[3])))
                 .map(row => {
@@ -314,30 +330,28 @@
             });
         }
 
-        // 지도 마커 그리기
+        // 지도의 둥근 마커 생성 및 이벤트 처리
         function plotMapMarkers(data) {
-            // 기존 마커 전체 삭제
+            // 이전 지도 마커 초기화
             markersGroup.forEach(m => map.removeLayer(m));
             markersGroup = [];
 
             data.forEach(item => {
                 const coords = locationCoords[item.coast];
-                if (!coords) return; // 위치 정보 매핑이 없을 경우 패스
+                if (!coords) return; 
 
                 const isAvail = item.decision.includes('사용 가능');
-                
-                // 적용 가능 여부에 따라 마커 색상 구분용 스타일 정의
-                const markerColor = isAvail ? '#10b981' : '#f43f5e';
+                const markerColor = isAvail ? '#10b981' : '#f43f5e'; // 사용가능 여부에 따른 초록/적색 마커 변경
                 
                 const customIcon = L.divIcon({
-                    html: `<div style="background-color: ${markerColor}; width: 14px; height: 14px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
+                    html: `<div style="background-color: ${markerColor}; width: 14px; height: 14px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.35);"></div>`,
                     className: '',
                     iconSize: [14, 14]
                 });
 
                 const marker = L.marker(coords, { icon: customIcon }).addTo(map);
                 
-                // 팝업 생성
+                // 마커 클릭 팝업 상세 내용
                 const popupContent = `
                     <div class="p-1">
                         <h4 class="font-bold text-sm text-gray-900">${item.coast}</h4>
@@ -347,7 +361,7 @@
                 `;
                 marker.bindPopup(popupContent);
 
-                // 마커 클릭 시 동작 정의
+                // 마커 클릭 시 해당 데이터 대시보드 연동
                 marker.on('click', () => {
                     showDecisionResult(item);
                 });
@@ -356,14 +370,14 @@
             });
         }
 
+        // 특정 연안 선택 시 지도를 이동 및 마커 활성화
         function focusMapOnCoast(coastName) {
             const coords = locationCoords[coastName];
             if (coords && map) {
                 map.setView(coords, 10);
                 
-                // 연결된 마커 찾아서 팝업 강제 오픈
                 markersGroup.forEach(m => {
-                    if(m.getLatLng().lat === coords[0] && m.getLatLng().lng === coords[1]) {
+                    if (m.getLatLng().lat === coords[0] && m.getLatLng().lng === coords[1]) {
                         m.openPopup();
                     }
                 });
