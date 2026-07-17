@@ -34,7 +34,7 @@
     <!-- Main Content -->
     <main class="flex-grow max-w-7xl w-full mx-auto p-4 md:p-8 grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        <!-- Left Column: Controls & Result Info & User Custom Input -->
+        <!-- Left Column: Controls & Result Info -->
         <div class="lg:col-span-1 flex flex-col gap-6">
             
             <!-- 1. 직접 변수 입력 시뮬레이터 -->
@@ -137,7 +137,7 @@
             </div>
         </div>
 
-        <!-- Right Column: Interactive Map & Detailed Table -->
+        <!-- Right Column: Map & Table -->
         <div class="lg:col-span-2 flex flex-col gap-6">
             <!-- Map Container -->
             <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
@@ -180,7 +180,7 @@
         let map = null;
         let markersGroup = [];
 
-        // DB에 연안 좌표가 등록된 주요 연안 리스트
+        // DB 주요 연안 좌표 리스트
         const locationCoords = {
             '거진연안': [38.265, 128.605], '속초연안': [38.204, 128.600], '양양연안': [38.085, 128.640],
             '주문진연안': [37.890, 128.845], '강릉연안': [37.780, 128.970], '동해연안': [37.525, 129.135],
@@ -207,7 +207,6 @@
             initCustomForm();
         });
 
-        // 1. 지도 초기화
         function initMap() {
             map = L.map('map').setView([36.2, 127.8], 7); 
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -215,21 +214,24 @@
             }).addTo(map);
         }
 
-        // 2. 해역별 판정 공식
+        // ★ [핵심] 해역별 명확한 요구 조건 판정 알고리즘
         function calculateDecision(region, temp, ph) {
+            // 동해 & 서해: 수온 17도 이상 AND pH 8.15 미만
             if (region === "동해" || region === "서해") {
                 if (temp >= 17 && ph < 8.15) {
                     return "해양알칼리도 향상 기술 사용 가능";
                 }
-            } else if (region === "남해") {
+            } 
+            // 남해: 수온 19도 이상 AND pH 8.15 미만
+            else if (region === "남해") {
                 if (temp >= 19 && ph < 8.15) {
                     return "해양알칼리도 향상 기술 사용 가능";
                 }
             }
+            // 그 외 모든 조건 만족하지 못할 때 사용 불가
             return "사용 불가";
         }
 
-        // 3. CSV 불러오기
         function fetchAndParseCSV() {
             fetch("2002-2025 해양데이터_사용가능판정.csv")
                 .then(response => {
@@ -254,7 +256,6 @@
                 });
         }
 
-        // 4. 초기 DB 원천 데이터 처리
         function processRawData(data) {
             if (data.length < 2) return;
             
@@ -273,7 +274,7 @@
                         temp: temp,
                         ph: ph,
                         decision: decision,
-                        isCustom: false // DB 원본 데이터는 false
+                        isCustom: false
                     };
                 });
 
@@ -281,20 +282,16 @@
             refreshView();
         }
 
-        // 5. 대시보드 화면 갱신 
         function refreshView() {
             updateStatistics();
             renderTable(oceanData);
-            // 지도 마커를 플로팅할 때, 수동 입력한 데이터는 단 하나도 들어가지 않도록 여기서 원천 봉쇄합니다.
             plotMapMarkers(oceanData);
         }
 
-        // 6. 필터 제어
         function initFilters() {
             const regionSelect = document.getElementById('region-select');
             const coastSelect = document.getElementById('coast-select');
 
-            // 필터 목록 구성 시에는 원본 DB 기반 연안들만 표시합니다.
             const originalData = oceanData.filter(d => !d.isCustom);
             const regions = [...new Set(originalData.map(d => d.region))];
             
@@ -309,11 +306,10 @@
                 const selectedRegion = e.target.value;
                 coastSelect.innerHTML = '<option value="">선택하세요</option>';
                 
-                let filtered = oceanData; // 전체 테이블 데이터
+                let filtered = oceanData;
                 if (selectedRegion !== 'ALL') {
                     filtered = oceanData.filter(d => d.region === selectedRegion);
                     
-                    // 상세 연안 선택 필터 목록에도 기존 데이터만 나오도록 필터링
                     const originalFiltered = filtered.filter(d => !d.isCustom);
                     const coasts = [...new Set(originalFiltered.map(d => d.coast))];
                     coasts.forEach(c => {
@@ -340,7 +336,7 @@
             };
         }
 
-        // 7. 시뮬레이터 폼 연동 (결과 보고서 및 테이블에만 동기화)
+        // 🛠️ 직접 연안 입력 시뮬레이터 연동 (요청하신 기준 완벽 연동)
         function initCustomForm() {
             const form = document.getElementById('simulator-form');
             form.addEventListener('submit', (e) => {
@@ -357,37 +353,37 @@
                 }
 
                 const fullCoastName = `${coastInput} (수동 입력)`;
+                
+                // [수정 핵심]: 입력한 수온과 pH가 해역 기준(calculateDecision)에 정합하게 적용되도록 바인딩
                 const decisionResult = calculateDecision(region, temp, ph);
 
-                // 수동 입력 전용 데이터 객체 (isCustom: true)
                 const customRecord = {
                     region: region,
                     coast: fullCoastName,
                     temp: temp,
                     ph: ph,
                     decision: decisionResult,
-                    isCustom: true
+                    isCustom: true // 수동 입력 마커 차단용 플래그
                 };
 
-                // 새로운 데이터는 배열 맨 위에 저장하여 실시간 조회 가능토록 처리
+                // 테이블 최상단 노출을 위해 배열 앞에 추가
                 oceanData.unshift(customRecord);
 
-                // 화면 리프레시 (지도 마커 제외하고 테이블 및 결과값 갱신)
+                // 화면 갱신 (지도를 제외한 명세표, 통계 최신화)
                 refreshView();
                 
-                // 결과 카드 영역 즉각 갱신
+                // 결과 카드 영역 즉각 반영하여 브리핑 제공
                 showDecisionResult(customRecord);
 
-                // 폼 초기화
+                // 입력 필드 초기화
                 document.getElementById('sim-coast').value = "";
                 document.getElementById('sim-temp').value = "";
                 document.getElementById('sim-ph').value = "";
 
-                alert(`[${fullCoastName}] 판정 결과가 목록과 결과 보고서에 적용되었습니다! (지도는 변경되지 않습니다.)`);
+                alert(`[${fullCoastName}] 데이터 분석이 완료되었습니다.\n결과: ${decisionResult}`);
             });
         }
 
-        // 8. 상단 적합성 통계
         function updateStatistics() {
             const availableCount = oceanData.filter(d => d.decision.includes('사용 가능')).length;
             const unavailableCount = oceanData.length - availableCount;
@@ -396,7 +392,6 @@
             document.getElementById('cnt-unavailable').textContent = unavailableCount + "개소";
         }
 
-        // 9. 결과 리포트 출력
         function showDecisionResult(item) {
             const card = document.getElementById('result-card');
             const badge = document.getElementById('status-badge');
@@ -425,7 +420,6 @@
             }
         }
 
-        // 10. 명세표 테이블 바인딩
         function renderTable(data) {
             const tbody = document.getElementById('table-body');
             tbody.innerHTML = '';
@@ -436,7 +430,6 @@
                 
                 tr.addEventListener('click', () => {
                     showDecisionResult(item);
-                    // 수동 입력 데이터(isCustom)는 클릭해도 절대 지도를 조작(포커싱)하지 않음
                     if (!item.isCustom) {
                         focusMapOnCoast(item);
                     }
@@ -459,12 +452,11 @@
             });
         }
 
-        // 11. 지도 마커 바인딩 (수동 입력은 완벽하게 필터 아웃)
         function plotMapMarkers(data) {
             markersGroup.forEach(m => map.removeLayer(m));
             markersGroup = [];
 
-            // ★ 중요: 전달받은 데이터 배열에서 수동 입력된 연안(isCustom === true) 데이터는 절대 마커로 생성하지 않도록 완벽 필터 처리
+            // 직접 입력된 연안은 지도 마커 생성 과정에서 완전 차단 (이중 안전 필터링)
             const dbOnlyData = data.filter(item => !item.isCustom);
 
             dbOnlyData.forEach(item => {
@@ -499,7 +491,6 @@
             });
         }
 
-        // 12. 대상 초점 이동
         function focusMapOnCoast(item) {
             const coords = locationCoords[item.coast];
             if (coords && map) {
