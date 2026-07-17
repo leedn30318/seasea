@@ -37,13 +37,13 @@
         <!-- Left Column: Controls & Result Info & User Custom Input -->
         <div class="lg:col-span-1 flex flex-col gap-6">
             
-            <!-- 1. 직접 변수 입력 시뮬레이터 (지도는 추가 X, 결과만 즉시 반영) -->
+            <!-- 1. 직접 변수 입력 시뮬레이터 -->
             <div class="bg-gradient-to-br from-blue-50 to-indigo-50 p-6 rounded-2xl shadow-md border-2 border-blue-400">
                 <h2 class="text-lg font-bold text-blue-900 flex items-center gap-2 mb-2">
                     <span>✍️</span> 신규 연안 직접 입력 시뮬레이터
                 </h2>
                 <p class="text-xs text-blue-700 mb-4 leading-relaxed">
-                    웹앱에 없는 연안의 조건별 판정 결과를 임의로 테스트합니다. (테이블 및 결과 카드에만 반영되고 지도에는 추가되지 않습니다.)
+                    웹앱에 없는 연안의 조건별 판정 결과를 시뮬레이션합니다. <strong>(지도에는 절대 마커가 추가되지 않고 결과창과 테이블에만 반영됩니다.)</strong>
                 </p>
                 <form id="simulator-form" class="space-y-3">
                     <div>
@@ -142,10 +142,10 @@
             <!-- Map Container -->
             <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                 <h2 class="text-lg font-semibold mb-4 text-gray-900 flex items-center gap-2">
-                    <span>🗺️</span> 연안 위치 매핑 현황 (DB 등록 연안만 표시)
+                    <span>🗺️</span> 연안 위치 매핑 현황 (기존 DB 연안만 표시)
                 </h2>
                 <div id="map" class="rounded-xl overflow-hidden border border-gray-200"></div>
-                <p class="text-xs text-gray-400 mt-2">💡 지도 마커는 사전에 연안 좌표가 등록된 데이터베이스(DB) 기반 연안들만 시각화합니다.</p>
+                <p class="text-xs text-gray-400 mt-2">💡 지도는 사전에 등록된 기존 연안(DB 기반)만 시각화합니다. 사용자가 추가한 가상 연안은 표시되지 않습니다.</p>
             </div>
 
             <!-- Data Table Container -->
@@ -207,7 +207,7 @@
             initCustomForm();
         });
 
-        // 1. 지도 구성
+        // 1. 지도 초기화
         function initMap() {
             map = L.map('map').setView([36.2, 127.8], 7); 
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -215,25 +215,21 @@
             }).addTo(map);
         }
 
-        // 2. 해역별 조건식 판정 알고리즘 함수
+        // 2. 해역별 판정 공식
         function calculateDecision(region, temp, ph) {
-            // [동해, 서해]: 수온 17도 이상이면서 pH가 8.15 미만일 때 사용 가능
             if (region === "동해" || region === "서해") {
                 if (temp >= 17 && ph < 8.15) {
                     return "해양알칼리도 향상 기술 사용 가능";
                 }
-            } 
-            // [남해]: 수온 19도 이상이면서 pH가 8.15 미만일 때 사용 가능
-            else if (region === "남해") {
+            } else if (region === "남해") {
                 if (temp >= 19 && ph < 8.15) {
                     return "해양알칼리도 향상 기술 사용 가능";
                 }
             }
-            // 그 외 모든 경우 사용 불가
             return "사용 불가";
         }
 
-        // 3. 파일 로드 및 안전 디코딩
+        // 3. CSV 불러오기
         function fetchAndParseCSV() {
             fetch("2002-2025 해양데이터_사용가능판정.csv")
                 .then(response => {
@@ -253,12 +249,12 @@
                     });
                 })
                 .catch(err => {
-                    alert("데이터를 가져오는 중 오류가 생겼습니다. CSV 파일명 또는 위치를 확인해주세요.");
+                    alert("데이터를 가져오는 중 오류가 생겼습니다.");
                     console.error(err);
                 });
         }
 
-        // 4. 로우 데이터 전처리 및 판정공식 적용
+        // 4. 초기 DB 원천 데이터 처리
         function processRawData(data) {
             if (data.length < 2) return;
             
@@ -277,7 +273,7 @@
                         temp: temp,
                         ph: ph,
                         decision: decision,
-                        isCustom: false
+                        isCustom: false // DB 원본 데이터는 false
                     };
                 });
 
@@ -285,21 +281,23 @@
             refreshView();
         }
 
-        // 5. 대시보드 뷰 일괄 동기화 (지도는 DB 데이터만 표시)
+        // 5. 대시보드 화면 갱신 
         function refreshView() {
             updateStatistics();
             renderTable(oceanData);
-            // 지도의 마커 플로팅 단계에서는 DB에 등록된 기존 연안 데이터만 필터링해서 처리합니다.
-            const dbOnlyData = oceanData.filter(d => !d.isCustom);
-            plotMapMarkers(dbOnlyData);
+            // 지도 마커를 플로팅할 때, 수동 입력한 데이터는 단 하나도 들어가지 않도록 여기서 원천 봉쇄합니다.
+            plotMapMarkers(oceanData);
         }
 
-        // 6. 조회 필터 초기화
+        // 6. 필터 제어
         function initFilters() {
             const regionSelect = document.getElementById('region-select');
             const coastSelect = document.getElementById('coast-select');
 
-            const regions = [...new Set(oceanData.map(d => d.region))];
+            // 필터 목록 구성 시에는 원본 DB 기반 연안들만 표시합니다.
+            const originalData = oceanData.filter(d => !d.isCustom);
+            const regions = [...new Set(originalData.map(d => d.region))];
+            
             regionSelect.innerHTML = '<option value="ALL">전체 해역</option>';
             regions.forEach(r => {
                 const opt = document.createElement('option');
@@ -307,14 +305,17 @@
                 regionSelect.appendChild(opt);
             });
 
-            regionSelect.addEventListener('change', (e) => {
+            regionSelect.onchange = (e) => {
                 const selectedRegion = e.target.value;
                 coastSelect.innerHTML = '<option value="">선택하세요</option>';
                 
-                let filtered = oceanData;
+                let filtered = oceanData; // 전체 테이블 데이터
                 if (selectedRegion !== 'ALL') {
                     filtered = oceanData.filter(d => d.region === selectedRegion);
-                    const coasts = [...new Set(filtered.map(d => d.coast))];
+                    
+                    // 상세 연안 선택 필터 목록에도 기존 데이터만 나오도록 필터링
+                    const originalFiltered = filtered.filter(d => !d.isCustom);
+                    const coasts = [...new Set(originalFiltered.map(d => d.coast))];
                     coasts.forEach(c => {
                         const opt = document.createElement('option');
                         opt.value = c; opt.textContent = c;
@@ -323,12 +324,11 @@
                 }
                 
                 renderTable(filtered);
-                // 필터 조회 시에도 직접 입력(isCustom) 데이터는 지도 마커에서 원천 배제
-                plotMapMarkers(filtered.filter(d => !d.isCustom));
+                plotMapMarkers(filtered);
                 document.getElementById('result-card').classList.add('hidden');
-            });
+            };
 
-            coastSelect.addEventListener('change', (e) => {
+            coastSelect.onchange = (e) => {
                 const selectedCoast = e.target.value;
                 if (!selectedCoast) return;
 
@@ -337,10 +337,10 @@
                     showDecisionResult(targetData);
                     focusMapOnCoast(targetData);
                 }
-            });
+            };
         }
 
-        // 7. 시뮬레이터 폼 이벤트 바인딩 (수동 입력 시 지도 추가 제외)
+        // 7. 시뮬레이터 폼 연동 (결과 보고서 및 테이블에만 동기화)
         function initCustomForm() {
             const form = document.getElementById('simulator-form');
             form.addEventListener('submit', (e) => {
@@ -352,16 +352,14 @@
                 const ph = parseFloat(document.getElementById('sim-ph').value);
 
                 if (!coastInput) {
-                    alert("연안의 이름을 적어주세요.");
+                    alert("연안의 이름을 입력해 주세요.");
                     return;
                 }
 
                 const fullCoastName = `${coastInput} (수동 입력)`;
-
-                // 세부 기준 조건 연산 결과 대입
                 const decisionResult = calculateDecision(region, temp, ph);
 
-                // 새로운 데이터 객체 생성 (isCustom 플래그 설정)
+                // 수동 입력 전용 데이터 객체 (isCustom: true)
                 const customRecord = {
                     region: region,
                     coast: fullCoastName,
@@ -371,26 +369,25 @@
                     isCustom: true
                 };
 
-                // 데이터 배열 최상단에 투입
+                // 새로운 데이터는 배열 맨 위에 저장하여 실시간 조회 가능토록 처리
                 oceanData.unshift(customRecord);
 
-                // 화면 갱신 (지도를 제외한 통계, 테이블, 필터 리스트 반영)
-                initFilters();
+                // 화면 리프레시 (지도 마커 제외하고 테이블 및 결과값 갱신)
                 refreshView();
                 
-                // 해당 연안 결과 즉각 결과창에 노출 (지도는 건드리지 않음)
+                // 결과 카드 영역 즉각 갱신
                 showDecisionResult(customRecord);
 
-                // 시뮬레이터 폼 기입란 초기화
+                // 폼 초기화
                 document.getElementById('sim-coast').value = "";
                 document.getElementById('sim-temp').value = "";
                 document.getElementById('sim-ph').value = "";
 
-                alert(`[${fullCoastName}] 판정 결과가 대시보드 리스트 및 결과창에 반영되었습니다!\n결과: ${decisionResult}`);
+                alert(`[${fullCoastName}] 판정 결과가 목록과 결과 보고서에 적용되었습니다! (지도는 변경되지 않습니다.)`);
             });
         }
 
-        // 8. 요약 통계값 계산
+        // 8. 상단 적합성 통계
         function updateStatistics() {
             const availableCount = oceanData.filter(d => d.decision.includes('사용 가능')).length;
             const unavailableCount = oceanData.length - availableCount;
@@ -399,7 +396,7 @@
             document.getElementById('cnt-unavailable').textContent = unavailableCount + "개소";
         }
 
-        // 9. 개별 결과 보고서 표시
+        // 9. 결과 리포트 출력
         function showDecisionResult(item) {
             const card = document.getElementById('result-card');
             const badge = document.getElementById('status-badge');
@@ -428,17 +425,18 @@
             }
         }
 
-        // 10. 명세표 테이블에 출력
+        // 10. 명세표 테이블 바인딩
         function renderTable(data) {
             const tbody = document.getElementById('table-body');
             tbody.innerHTML = '';
 
             data.forEach(item => {
                 const tr = document.createElement('tr');
-                // 직접 입력한 데이터는 식별 및 클릭 활성화를 위해 파란색 왼쪽 띠 디자인 적용
                 tr.className = `hover:bg-gray-100 cursor-pointer transition ${item.isCustom ? 'bg-blue-50/70 border-l-4 border-blue-500 font-semibold' : ''}`;
+                
                 tr.addEventListener('click', () => {
                     showDecisionResult(item);
+                    // 수동 입력 데이터(isCustom)는 클릭해도 절대 지도를 조작(포커싱)하지 않음
                     if (!item.isCustom) {
                         focusMapOnCoast(item);
                     }
@@ -461,12 +459,15 @@
             });
         }
 
-        // 11. 지도 마커 바인딩 (isCustom 데이터를 제외한 기존 DB 데이터만 지도에 렌더링)
+        // 11. 지도 마커 바인딩 (수동 입력은 완벽하게 필터 아웃)
         function plotMapMarkers(data) {
             markersGroup.forEach(m => map.removeLayer(m));
             markersGroup = [];
 
-            data.forEach(item => {
+            // ★ 중요: 전달받은 데이터 배열에서 수동 입력된 연안(isCustom === true) 데이터는 절대 마커로 생성하지 않도록 완벽 필터 처리
+            const dbOnlyData = data.filter(item => !item.isCustom);
+
+            dbOnlyData.forEach(item => {
                 const coords = locationCoords[item.coast];
                 if (!coords) return; 
 
