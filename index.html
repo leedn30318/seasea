@@ -13,7 +13,7 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
         body { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif; }
-        #map { height: 450px; width: 100%; z-index: 1; }
+        #map { height: 420px; width: 100%; z-index: 1; }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800 min-h-screen flex flex-col">
@@ -23,10 +23,10 @@
         <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
             <div>
                 <h1 class="text-2xl font-bold">연안별 해양알칼리도 향상 기술 적합성 분석</h1>
-                <p class="text-sm text-blue-100 mt-1">EUC-KR 디코더 완벽 해결 및 사용자 맞춤 변수 시뮬레이터 연동</p>
+                <p class="text-sm text-blue-100 mt-1">EUC-KR 디코더 내장 & 실시간 수동 판정 시뮬레이터 탑재</p>
             </div>
             <div class="text-xs bg-blue-700 px-3 py-2 rounded-lg text-right">
-                <strong>데이터 출처:</strong> 2002-2025 해양데이터_사용가능판정.csv
+                <strong>데이터 원천:</strong> 2002-2025 해양데이터_사용가능판정.csv
             </div>
         </div>
     </header>
@@ -34,22 +34,60 @@
     <!-- Main Content -->
     <main class="flex-grow max-w-7xl w-full mx-auto p-4 md:p-8 grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        <!-- Left Column: Controls, Custom Input & Result Info -->
+        <!-- Left Column: Controls & Result Info & User Custom Input -->
         <div class="lg:col-span-1 flex flex-col gap-6">
-            <!-- 1. Filter Card -->
+            
+            <!-- 1. 직접 변수 입력 시뮬레이터 (사용자 요청 적극 반영) -->
+            <div class="bg-gradient-to-br from-blue-50 to-indigo-50 p-6 rounded-2xl shadow-md border-2 border-blue-400">
+                <h2 class="text-lg font-bold text-blue-900 flex items-center gap-2 mb-2">
+                    <span>✍️</span> 신규 연안 직접 입력 시뮬레이터
+                </h2>
+                <p class="text-xs text-blue-700 mb-4 leading-relaxed">
+                    웹앱에 없는 연안 정보를 수동으로 기입하여 기준에 따른 기술 적용 적합 여부를 즉석에서 판정하고 지도에 배치합니다.
+                </p>
+                <form id="simulator-form" class="space-y-3">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-700 mb-1">위치(해역 선택)</label>
+                        <select id="sim-region" class="w-full p-2.5 bg-white border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" required>
+                            <option value="동해">동해</option>
+                            <option value="남해">남해</option>
+                            <option value="서해">서해</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-700 mb-1">연안 이름</label>
+                        <input type="text" id="sim-coast" class="w-full p-2.5 bg-white border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="예: 부산신항외안" required>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-xs font-bold text-gray-700 mb-1">수온 (℃)</label>
+                            <input type="number" id="sim-temp" step="0.01" class="w-full p-2.5 bg-white border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="18.5" required>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-700 mb-1">수소이온농도 (pH)</label>
+                            <input type="number" id="sim-ph" step="0.01" class="w-full p-2.5 bg-white border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="8.11" required>
+                        </div>
+                    </div>
+                    <button type="submit" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-bold transition-all shadow-md mt-2">
+                        실시간 판정 및 지도에 추가
+                    </button>
+                </form>
+            </div>
+
+            <!-- 2. 기존 데이터 검색 필터 -->
             <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                 <h2 class="text-lg font-semibold mb-4 text-gray-900 flex items-center gap-2">
-                    <span>🔍</span> 기존 데이터 조회 및 필터
+                    <span>🔍</span> 기존 연안 데이터 필터
                 </h2>
-                <div class="space-y-4">
+                <div class="space-y-3">
                     <div>
-                        <label class="block text-sm font-medium text-gray-600 mb-1">해역 선택</label>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">해역 선택</label>
                         <select id="region-select" class="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
                             <option value="ALL">전체 해역</option>
                         </select>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-600 mb-1">상세 연안 선택</label>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">상세 연안 선택</label>
                         <select id="coast-select" class="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
                             <option value="">해역을 먼저 선택하세요</option>
                         </select>
@@ -57,110 +95,75 @@
                 </div>
             </div>
 
-            <!-- 2. NEW: Custom Input Simulator Card -->
-            <div class="bg-white p-6 rounded-2xl shadow-sm border border-blue-200 bg-blue-50/20">
-                <h2 class="text-lg font-semibold mb-3 text-blue-900 flex items-center gap-2">
-                    <span>✍️</span> 신규 연안 직접 입력 (시뮬레이터)
+            <!-- 3. 판정 결과 카드 -->
+            <div id="result-card" class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 hidden">
+                <h2 class="text-lg font-semibold mb-3 text-gray-900 flex items-center gap-1.5">
+                    <span>💡</span> 판정 결과 리포트
                 </h2>
-                <p class="text-xs text-gray-500 mb-4">웹앱에 없는 연안의 조건별 판정 결과를 임의로 테스트하고 지도에 추가합니다.</p>
-                <form id="custom-input-form" class="space-y-3">
-                    <div>
-                        <label class="block text-xs font-semibold text-gray-600 mb-1">위치(해역)</label>
-                        <select id="custom-region" class="w-full p-2 bg-white border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500" required>
-                            <option value="동해">동해</option>
-                            <option value="남해">남해</option>
-                            <option value="서해">서해</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-gray-600 mb-1">연안 이름</label>
-                        <input type="text" id="custom-coast" class="w-full p-2 bg-white border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500" placeholder="예: 양양신규연안" required>
-                    </div>
-                    <div class="grid grid-cols-2 gap-2">
-                        <div>
-                            <label class="block text-xs font-semibold text-gray-600 mb-1">수온 (℃)</label>
-                            <input type="number" id="custom-temp" step="0.01" class="w-full p-2 bg-white border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500" placeholder="20.5" required>
-                        </div>
-                        <div>
-                            <label class="block text-xs font-semibold text-gray-600 mb-1">수소이온농도 (pH)</label>
-                            <input type="number" id="custom-ph" step="0.01" class="w-full p-2 bg-white border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500" placeholder="8.12" required>
-                        </div>
-                    </div>
-                    <button type="submit" class="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-bold transition shadow-xs mt-2">
-                        판정 및 시각화 데이터 추가
-                    </button>
-                </form>
-            </div>
-
-            <!-- 3. Decision Result Card -->
-            <div id="result-card" class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hidden">
-                <h2 class="text-lg font-semibold mb-3 text-gray-900">💡 기술 판정 결과</h2>
-                <div id="status-badge" class="inline-block px-3 py-1.5 rounded-full text-sm font-bold mb-4"></div>
-                <div class="space-y-2 text-sm">
+                <div id="status-badge" class="inline-block px-3 py-1.5 rounded-full text-xs font-bold mb-4"></div>
+                <div class="space-y-2.5 text-sm">
                     <div class="flex justify-between border-b border-gray-100 pb-2">
-                        <span class="text-gray-500">선택된 지역</span>
+                        <span class="text-gray-500">선택지역 및 연안</span>
                         <span id="res-name" class="font-bold text-gray-900">-</span>
                     </div>
                     <div class="flex justify-between border-b border-gray-100 pb-2">
-                        <span class="text-gray-500">측정 수온</span>
-                        <span id="res-temp" class="font-medium text-gray-900">-</span>
+                        <span class="text-gray-500">수온 수치</span>
+                        <span id="res-temp" class="font-semibold text-gray-900">-</span>
                     </div>
                     <div class="flex justify-between border-b border-gray-100 pb-2">
-                        <span class="text-gray-500">측정 pH</span>
-                        <span id="res-ph" class="font-medium text-gray-900">-</span>
+                        <span class="text-gray-500">pH 농도</span>
+                        <span id="res-ph" class="font-semibold text-gray-900">-</span>
                     </div>
                     <div class="flex justify-between border-b border-gray-100 pb-2">
-                        <span class="text-gray-500">용존산소량 (DO)</span>
-                        <span id="res-do" class="font-medium text-gray-900">-</span>
+                        <span class="text-gray-500">판정 근거 유형</span>
+                        <span id="res-type" class="font-medium text-gray-600">-</span>
                     </div>
                 </div>
             </div>
 
-            <!-- summary static card -->
-            <div class="bg-gradient-to-br from-blue-50 to-indigo-50 p-6 rounded-2xl border border-blue-100">
-                <h3 class="font-semibold text-blue-900 mb-2">전체 요약 통계</h3>
-                <div class="grid grid-cols-2 gap-4 mt-3">
-                    <div class="bg-white p-3 rounded-xl shadow-xs text-center">
+            <!-- 요약 통계 -->
+            <div class="bg-gray-100 p-5 rounded-2xl border border-gray-200">
+                <h3 class="font-semibold text-gray-800 text-sm mb-2">현재 적합성 통계 (전체 수량)</h3>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-white p-3 rounded-xl text-center shadow-2xs">
                         <p class="text-xs text-gray-500">사용 가능 연안</p>
-                        <p id="cnt-available" class="text-xl font-bold text-emerald-600">0</p>
+                        <p id="cnt-available" class="text-lg font-bold text-emerald-600">0개소</p>
                     </div>
-                    <div class="bg-white p-3 rounded-xl shadow-xs text-center">
+                    <div class="bg-white p-3 rounded-xl text-center shadow-2xs">
                         <p class="text-xs text-gray-500">사용 불가 연안</p>
-                        <p id="cnt-unavailable" class="text-xl font-bold text-rose-600">0</p>
+                        <p id="cnt-unavailable" class="text-lg font-bold text-rose-600">0개소</p>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Right Column: Map & Table -->
+        <!-- Right Column: Interactive Map & Detailed Table -->
         <div class="lg:col-span-2 flex flex-col gap-6">
-            <!-- Map Card -->
+            <!-- Map Container -->
             <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                 <h2 class="text-lg font-semibold mb-4 text-gray-900 flex items-center gap-2">
-                    <span>🗺️</span> 연안별 공간 위치 지도
+                    <span>🗺️</span> 연안 위치 매핑 현황
                 </h2>
-                <!-- 지도가 표시되는 영역 -->
-                <div id="map" class="rounded-xl overflow-hidden shadow-inner border border-gray-200"></div>
-                <p class="text-xs text-gray-400 mt-2">💡 마커를 클릭하면 해양알칼리도 적합성 분석 결과가 팝업 및 좌측 결과 카드에 연동되어 표시됩니다.</p>
+                <div id="map" class="rounded-xl overflow-hidden border border-gray-200"></div>
+                <p class="text-xs text-gray-400 mt-2">💡 마커가 녹색이면 기술 도입이 가능하고, 적색이면 불가능한 연안을 뜻합니다. 직접 입력한 가상 연안은 푸른 외곽선 마커로 차별화되어 추가됩니다.</p>
             </div>
 
-            <!-- Table Card -->
+            <!-- Data Table Container -->
             <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                <h2 class="text-lg font-semibold mb-3 text-gray-900">📋 데이터 명세 리스트</h2>
-                <div class="overflow-x-auto max-h-[300px]">
+                <h2 class="text-lg font-semibold mb-3 text-gray-900">📋 전체 분석 명세표</h2>
+                <div class="overflow-x-auto max-h-[350px]">
                     <table class="w-full text-left border-collapse text-sm">
                         <thead>
                             <tr class="bg-gray-50 text-gray-600 sticky top-0 border-b border-gray-200">
-                                <th class="p-3">해역</th>
-                                <th class="p-3">연안명</th>
+                                <th class="p-3">해역 위치</th>
+                                <th class="p-3">연안 이름</th>
                                 <th class="p-3">수온(℃)</th>
                                 <th class="p-3">pH</th>
-                                <th class="p-3">DO(㎎/ℓ)</th>
-                                <th class="p-3">판정 결과</th>
+                                <th class="p-3">적용 판정 결과</th>
                             </tr>
                         </thead>
                         <tbody id="table-body" class="divide-y divide-gray-100 text-gray-700">
-                            <!-- JS Dynamic Input -->
+                            <!-- Javascript가 동적으로 구성함 -->
                         </tbody>
                     </table>
                 </div>
@@ -169,7 +172,7 @@
     </main>
 
     <footer class="bg-gray-100 text-center py-4 text-xs text-gray-500 border-t border-gray-200 mt-auto">
-        &copy; 2026 해양알칼리도 기술 검토 대시보드 - GitHub Pages Deployment Ready
+        &copy; 2026 해양알칼리도 기술 검토 대시보드 - 시뮬레이션 인터랙션 연동 완료
     </footer>
 
     <script>
@@ -177,7 +180,7 @@
         let map = null;
         let markersGroup = [];
 
-        // 대한민국 주요 연안 기본 좌표 데이터베이스
+        // 연안 디폴트 좌표 데이터베이스
         const locationCoords = {
             '거진연안': [38.265, 128.605], '속초연안': [38.204, 128.600], '양양연안': [38.085, 128.640],
             '주문진연안': [37.890, 128.845], '강릉연안': [37.780, 128.970], '동해연안': [37.525, 129.135],
@@ -198,20 +201,20 @@
             '아산연안': [36.980, 126.755]
         };
 
-        // 해역 대분류 매핑 헬퍼 (수동 입력을 위해 위치 정보 보정)
-        const regionCenterCoords = {
-            '동해': [37.0, 129.2],
-            '남해': [34.3, 127.5],
-            '서해': [36.0, 126.2]
+        // 직접 변수를 입력한 해역을 매핑하기 위한 기준 위치 좌표값
+        const regionCoordinates = {
+            '동해': [37.2, 129.3],
+            '남해': [34.4, 127.6],
+            '서해': [36.1, 126.1]
         };
 
         window.addEventListener('DOMContentLoaded', () => {
             initMap();
             fetchAndParseCSV();
-            setupCustomInputForm();
+            initCustomForm();
         });
 
-        // 지도 초기 설정
+        // 1. 지도 구성
         function initMap() {
             map = L.map('map').setView([36.2, 127.8], 7); 
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -219,11 +222,29 @@
             }).addTo(map);
         }
 
-        // CSV 바이너리를 직접 한글 인코딩 처리하여 읽어오는 안전 로직
+        // 2. 🌟 사용자 조건에 기반한 단일화 판정 공식 함수 (매우 중요)
+        function calculateDecision(region, temp, ph) {
+            // [동해, 서해]: 수온 17도 이상이면서 pH가 8.15 미만일 때 사용 가능
+            if (region === "동해" || region === "서해") {
+                if (temp >= 17 && ph < 8.15) {
+                    return "해양알칼리도 향상 기술 사용 가능";
+                }
+            } 
+            // [남해]: 수온 19도 이상이면서 pH가 8.15 미만일 때 사용 가능
+            else if (region === "남해") {
+                if (temp >= 19 && ph < 8.15) {
+                    return "해양알칼리도 향상 기술 사용 가능";
+                }
+            }
+            // 그 외 모든 경우 사용 불가
+            return "사용 불가";
+        }
+
+        // 3. 파일 로드 및 안전 디코딩
         function fetchAndParseCSV() {
             fetch("2002-2025 해양데이터_사용가능판정.csv")
                 .then(response => {
-                    if (!response.ok) throw new Error("파일 로드 네트워크 문제 발생");
+                    if (!response.ok) throw new Error("파일 네트워크 로드 실패");
                     return response.arrayBuffer();
                 })
                 .then(buffer => {
@@ -239,45 +260,52 @@
                     });
                 })
                 .catch(err => {
-                    alert("데이터 로드 실패: CSV 파일명과 위치를 확인해 주세요.");
+                    alert("데이터를 가져오는 중 오류가 생겼습니다. CSV 파일명 또는 위치를 확인해주세요.");
                     console.error(err);
                 });
         }
 
+        // 4. 로우 데이터 전처리 및 통합 판정공식 적용
         function processRawData(data) {
             if (data.length < 2) return;
             
             oceanData = data.slice(1)
                 .filter(row => row[0] !== "해역/연안별(1)" && row[1] && row[3] && !isNaN(parseFloat(row[3])))
                 .map(row => {
+                    const region = row[0].trim();
+                    const coast = row[1].trim();
+                    const temp = parseFloat(row[3]);
+                    const ph = parseFloat(row[4]);
+                    
+                    // 파일의 판정값 대신, 실시간 지정 조건 함수를 일관되게 적용
+                    const decision = calculateDecision(region, temp, ph);
+
                     return {
-                        region: row[0].trim(),
-                        coast: row[1].trim(),
-                        depth: row[2].trim(),
-                        temp: parseFloat(row[3]),
-                        ph: parseFloat(row[4]),
-                        do: parseFloat(row[5]) || 0,
-                        decision: row[6] ? row[6].trim() : "사용 불가",
+                        region: region,
+                        coast: coast,
+                        temp: temp,
+                        ph: ph,
+                        decision: decision,
                         isCustom: false
                     };
                 });
 
             initFilters();
-            refreshDashboard();
+            refreshView();
         }
 
-        // 필터 및 화면 갱신 통합함수
-        function refreshDashboard() {
+        // 5. 대시보드 뷰 일괄 동기화
+        function refreshView() {
             updateStatistics();
             renderTable(oceanData);
             plotMapMarkers(oceanData);
         }
 
+        // 6. 조회 필터 초기화
         function initFilters() {
             const regionSelect = document.getElementById('region-select');
             const coastSelect = document.getElementById('coast-select');
 
-            // 동해, 남해, 서해 고정 분류 포함 고유 해역 재구성
             const regions = [...new Set(oceanData.map(d => d.region))];
             regionSelect.innerHTML = '<option value="ALL">전체 해역</option>';
             regions.forEach(r => {
@@ -318,107 +346,111 @@
             });
         }
 
-        // 수동 입력 시뮬레이터 폼 설정
-        function setupCustomInputForm() {
-            const form = document.getElementById('custom-input-form');
+        // 7. 🌟 시뮬레이터 폼 이벤트 바인딩 (직접 입력 처리)
+        function initCustomForm() {
+            const form = document.getElementById('simulator-form');
             form.addEventListener('submit', (e) => {
                 e.preventDefault();
 
-                const region = document.getElementById('custom-region').value;
-                const coast = document.getElementById('custom-coast').value.trim();
-                const temp = parseFloat(document.getElementById('custom-temp').value);
-                const ph = parseFloat(document.getElementById('custom-ph').value);
+                const region = document.getElementById('sim-region').value;
+                const coastInput = document.getElementById('sim-coast').value.trim();
+                const temp = parseFloat(document.getElementById('sim-temp').value);
+                const ph = parseFloat(document.getElementById('sim-ph').value);
 
-                if (!coast) {
-                    alert("연안 이름을 입력해 주세요.");
+                if (!coastInput) {
+                    alert("연안의 이름을 적어주세요.");
                     return;
                 }
 
-                // 💡 문제에서 요구한 정확한 해역별 조건 판정 알고리즘 적용
-                let decision = "사용 불가";
-                if (region === "동해" || region === "서해") {
-                    if (temp >= 17 && ph < 8.15) {
-                        decision = "해양알칼리도 향상 기술 사용 가능";
-                    }
-                } else if (region === "남해") {
-                    if (temp >= 19 && ph < 8.15) {
-                        decision = "해양알칼리도 향상 기술 사용 가능";
-                    }
-                }
+                const fullCoastName = `${coastInput} (수동 입력)`;
 
-                // 기존 배열에 가상의 연안 데이터로 동적 삽입
-                const newCoastData = {
+                // 🌟 요구사항 판정 조건 완벽히 작동
+                const decisionResult = calculateDecision(region, temp, ph);
+
+                // 가상의 위경도 좌표 설계 (해당 해역 중심점에 미세 노이즈 분산)
+                const center = regionCoordinates[region];
+                const noiseLat = (Math.random() - 0.5) * 0.4;
+                const noiseLng = (Math.random() - 0.5) * 0.4;
+                locationCoords[fullCoastName] = [center[0] + noiseLat, center[1] + noiseLng];
+
+                // 새로운 데이터 객체 생성
+                const customRecord = {
                     region: region,
-                    coast: coast + " (직접입력)",
-                    depth: "표층 (가상)",
+                    coast: fullCoastName,
                     temp: temp,
                     ph: ph,
-                    do: "-", // 직접입력이므로 미측정 처리
-                    decision: decision,
+                    decision: decisionResult,
                     isCustom: true
                 };
 
-                // 임의의 위경도 생성 (지정된 해역의 평균 좌표 근처에 분산 배치)
-                const baseCoords = regionCenterCoords[region] || [36.0, 127.5];
-                // 조금씩 다른 위치에 표시되도록 미세 난수 편차 추가
-                const offsetLat = (Math.random() - 0.5) * 0.3;
-                const offsetLng = (Math.random() - 0.5) * 0.3;
-                locationCoords[newCoastData.coast] = [baseCoords[0] + offsetLat, baseCoords[1] + offsetLng];
+                // 데이터 배열 최상단에 투입
+                oceanData.unshift(customRecord);
 
-                // 데이터셋의 맨 앞에 삽입하여 즉각적인 반응 제공
-                oceanData.unshift(newCoastData);
-
-                // 전체 필터 목록 재설정 및 대시보드 강제 갱신
+                // 화면 갱신 및 필터 초기화
                 initFilters();
-                refreshDashboard();
-                showDecisionResult(newCoastData);
-                focusMapOnCoast(newCoastData);
+                refreshView();
+                
+                // 해당 연안 결과 즉각 노출 및 지도 초점 맞춤
+                showDecisionResult(customRecord);
+                focusMapOnCoast(customRecord);
 
-                // 폼 초기화
-                document.getElementById('custom-coast').value = "";
-                document.getElementById('custom-temp').value = "";
-                document.getElementById('custom-ph').value = "";
+                // 시뮬레이터 기입 폼 초기화
+                document.getElementById('sim-coast').value = "";
+                document.getElementById('sim-temp').value = "";
+                document.getElementById('sim-ph').value = "";
 
-                alert(`'${coast}' 연안의 판정 결과가 대시보드와 지도에 정상 반영되었습니다!\n결과: ${decision}`);
+                alert(`직접 입력하신 연안 [${fullCoastName}]의 분석이 끝났습니다!\n판정 결과: ${decisionResult}`);
             });
         }
 
+        // 8. 요약 통계값 계산
         function updateStatistics() {
             const availableCount = oceanData.filter(d => d.decision.includes('사용 가능')).length;
             const unavailableCount = oceanData.length - availableCount;
 
-            document.getElementById('cnt-available').textContent = availableCount + " 개소";
-            document.getElementById('cnt-unavailable').textContent = unavailableCount + " 개소";
+            document.getElementById('cnt-available').textContent = availableCount + "개소";
+            document.getElementById('cnt-unavailable').textContent = unavailableCount + "개소";
         }
 
+        // 9. 개별 결과 보고서 표시
         function showDecisionResult(item) {
             const card = document.getElementById('result-card');
             const badge = document.getElementById('status-badge');
+            const typeLabel = document.getElementById('res-type');
             
             document.getElementById('res-name').textContent = `[${item.region}] ${item.coast}`;
             document.getElementById('res-temp').textContent = item.temp + " ℃";
             document.getElementById('res-ph').textContent = item.ph;
-            document.getElementById('res-do').textContent = item.do + (item.isCustom ? "" : " ㎎/ℓ");
 
             card.classList.remove('hidden');
 
-            if (item.decision.includes('사용 가능')) {
-                badge.className = "inline-block px-3 py-1.5 rounded-full text-sm font-bold mb-4 bg-emerald-100 text-emerald-800";
-                badge.textContent = "🟢 기술 도입 가능 연안";
+            const isAvail = item.decision.includes('사용 가능');
+
+            // 판정 근거를 한국어로 세련되게 변환 출력
+            if (item.region === "동해" || item.region === "서해") {
+                typeLabel.textContent = "동/서해 기준 (수온 17℃↑, pH 8.15↓)";
             } else {
-                badge.className = "inline-block px-3 py-1.5 rounded-full text-sm font-bold mb-4 bg-rose-100 text-rose-800";
-                badge.textContent = "🔴 기술 도입 불가 지역";
+                typeLabel.textContent = "남해 기준 (수온 19℃↑, pH 8.15↓)";
+            }
+
+            if (isAvail) {
+                badge.className = "inline-block px-3 py-1.5 rounded-full text-xs font-bold mb-4 bg-emerald-100 text-emerald-800";
+                badge.textContent = "🟢 해양알칼리도 향상 기술 사용 가능";
+            } else {
+                badge.className = "inline-block px-3 py-1.5 rounded-full text-xs font-bold mb-4 bg-rose-100 text-rose-800";
+                badge.textContent = "🔴 기술 사용 불가 지역";
             }
         }
 
+        // 10. 명세표 테이블에 출력
         function renderTable(data) {
             const tbody = document.getElementById('table-body');
             tbody.innerHTML = '';
 
             data.forEach(item => {
                 const tr = document.createElement('tr');
-                // 직접 입력 데이터는 구분을 위해 옅은 파란색 배경 지정
-                tr.className = `hover:bg-gray-100 cursor-pointer transition ${item.isCustom ? 'bg-blue-50/50' : ''}`;
+                // 사용자가 임의로 추가한 데이터는 쉽게 식별되도록 배경색 강조
+                tr.className = `hover:bg-gray-100 cursor-pointer transition ${item.isCustom ? 'bg-blue-50/70 border-l-4 border-blue-500' : ''}`;
                 tr.addEventListener('click', () => {
                     showDecisionResult(item);
                     focusMapOnCoast(item);
@@ -428,10 +460,9 @@
                 
                 tr.innerHTML = `
                     <td class="p-3 font-medium text-gray-500">${item.region} ${item.isCustom ? '📌' : ''}</td>
-                    <td class="p-3 font-semibold">${item.coast}</td>
+                    <td class="p-3 font-semibold text-gray-900">${item.coast}</td>
                     <td class="p-3">${item.temp}</td>
                     <td class="p-3">${item.ph}</td>
-                    <td class="p-3">${item.do}</td>
                     <td class="p-3">
                         <span class="px-2 py-0.5 rounded text-xs font-semibold ${isAvail ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}">
                             ${isAvail ? '사용 가능' : '사용 불가'}
@@ -442,6 +473,7 @@
             });
         }
 
+        // 11. 지도 마커 바인딩
         function plotMapMarkers(data) {
             markersGroup.forEach(m => map.removeLayer(m));
             markersGroup = [];
@@ -451,10 +483,10 @@
                 if (!coords) return; 
 
                 const isAvail = item.decision.includes('사용 가능');
-                
-                // 직접 입력된 마커는 하늘색 바깥 테두리 추가해 시각적 구분 강화
                 let markerColor = isAvail ? '#10b981' : '#f43f5e';
-                let borderStyle = item.isCustom ? 'border: 3px solid #3b82f6; width: 18px; height: 18px;' : 'border: 2px solid white; width: 14px; height: 14px;';
+                
+                // 시뮬레이터 전용 커스텀 마커와 기본 마커 구분
+                let borderStyle = item.isCustom ? 'border: 3px solid #2563eb; width: 18px; height: 18px;' : 'border: 2px solid white; width: 14px; height: 14px;';
                 let size = item.isCustom ? [18, 18] : [14, 14];
 
                 const customIcon = L.divIcon({
@@ -467,7 +499,7 @@
                 
                 const popupContent = `
                     <div class="p-1">
-                        <h4 class="font-bold text-sm text-gray-900">${item.coast} ${item.isCustom ? '(시뮬레이션)' : ''}</h4>
+                        <h4 class="font-bold text-sm text-gray-900">${item.coast} ${item.isCustom ? '(가상입력)' : ''}</h4>
                         <p class="text-xs text-gray-600 mt-1">수온: ${item.temp}℃ | pH: ${item.ph}</p>
                         <p class="text-xs font-bold mt-1 ${isAvail ? 'text-emerald-600':'text-rose-600'}">${item.decision}</p>
                     </div>
@@ -482,6 +514,7 @@
             });
         }
 
+        // 12. 대상 초점 이동
         function focusMapOnCoast(item) {
             const coords = locationCoords[item.coast];
             if (coords && map) {
